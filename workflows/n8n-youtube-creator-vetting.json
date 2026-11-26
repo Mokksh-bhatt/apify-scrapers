@@ -1,0 +1,403 @@
+{
+  "name": "Weekly YouTube Creator Sponsorship Vetting (Apify -> Google Sheets)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## YouTube Creator Vetting & Weekly Tracker (Apify -> Google Sheets)\n\nAutomatically pulls live YouTube channel stats, recent median video views, and upload cadence every Monday (no YouTube API key required), filters out low-view channels, calculates a views-to-subscribers engagement ratio, and upserts clean rows into Google Sheets.\n\n**Prerequisites:**\n- Set `APIFY_TOKEN` in n8n Environment Variables (Apify's free $5/month credit covers testing).\n- Connect a Google Sheets OAuth2 credential and replace `YOUR_GOOGLE_SHEET_ID`.",
+        "height": 250,
+        "width": 450,
+        "color": 5
+      },
+      "id": "sticky-overview",
+      "name": "Sticky Note — Overview & Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [140, 20]
+    },
+    {
+      "parameters": {
+        "content": "## Step 1: Schedule & Target Channels\n\nEdit **Configure Target Channels** to swap `@handle` lists or raise/lower `minMedianViews` for your sponsorship budget.",
+        "height": 170,
+        "width": 420,
+        "color": 4
+      },
+      "id": "sticky-config",
+      "name": "Sticky Note — Step 1 Config",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [160, 560]
+    },
+    {
+      "parameters": {
+        "content": "## Step 2: Scrape & Filter Creators\n\nCalls **67-labs/youtube-channel-snapshot** on Apify, keeps only valid channels meeting your minimum median views threshold, and deduplicates by `channelId`.",
+        "height": 180,
+        "width": 540,
+        "color": 6
+      },
+      "id": "sticky-extract",
+      "name": "Sticky Note — Step 2 Scrape & Filter",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [680, 60]
+    },
+    {
+      "parameters": {
+        "content": "## Step 3: Score & Upsert to Sheets\n\nComputes `viewsToSubRatioPct` so sponsor teams spot high-engagement channels quickly, then upserts each channel into Google Sheets by `channelId`.",
+        "height": 180,
+        "width": 460,
+        "color": 7
+      },
+      "id": "sticky-sheets",
+      "name": "Sticky Note — Step 3 Score & Sync",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1280, 60]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [1],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "trigger-weekly",
+      "name": "Weekly Monday Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "Manual Test Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [200, 460]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-channels",
+              "name": "channels",
+              "value": "={{ [\"@mkbhd\", \"@Fireship\", \"@veritasium\", \"@LinusTechTips\", \"@AliAbdaal\"] }}",
+              "type": "array"
+            },
+            {
+              "id": "cfg-min-views",
+              "name": "minMedianViews",
+              "value": 10000,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "configure-channels",
+      "name": "Configure Target Channels",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/67-labs~youtube-channel-snapshot/run-sync-get-dataset-items",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "={{ $env.APIFY_TOKEN }}"
+            },
+            {
+              "name": "maxTotalChargeUsd",
+              "value": "1"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ channels: $json.channels }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "apify-youtube",
+      "name": "Scrape YouTube Channels (Apify)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 380]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-channel-id",
+              "leftValue": "={{ $json.channelId || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "cond-min-views",
+              "leftValue": "={{ Number($json.medianViewsLast30 || 0) }}",
+              "rightValue": "={{ Number($('Configure Target Channels').item.json.minMedianViews) }}",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-channels",
+      "name": "Filter Active High-View Channels",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [940, 380]
+    },
+    {
+      "parameters": {
+        "operation": "removeDuplicateInputItems",
+        "compare": "selectedFields",
+        "fieldsToCompare": {
+          "fields": [
+            {
+              "fieldName": "channelId"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dedupe-channel",
+      "name": "Deduplicate by Channel ID",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [1160, 320]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "out-id",
+              "name": "channelId",
+              "value": "={{ $json.channelId }}",
+              "type": "string"
+            },
+            {
+              "id": "out-title",
+              "name": "title",
+              "value": "={{ $json.title || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-handle",
+              "name": "handle",
+              "value": "={{ $json.handle || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-subs",
+              "name": "subscriberCount",
+              "value": "={{ $json.subscriberCount ?? 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "out-views",
+              "name": "totalViews",
+              "value": "={{ $json.totalViews ?? 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "out-videos",
+              "name": "videoCount",
+              "value": "={{ $json.videoCount ?? 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "out-uploads",
+              "name": "uploadsPer30Days",
+              "value": "={{ $json.uploadsPer30Days ?? 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "out-median",
+              "name": "medianViewsLast30",
+              "value": "={{ $json.medianViewsLast30 ?? 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "out-ratio",
+              "name": "viewsToSubRatioPct",
+              "value": "={{ $json.subscriberCount ? Math.round((($json.medianViewsLast30 || 0) / $json.subscriberCount) * 1000) / 10 : 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "out-latest",
+              "name": "latestUploadAgo",
+              "value": "={{ $json.latestUploadAgo || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-country",
+              "name": "country",
+              "value": "={{ $json.country || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-url",
+              "name": "url",
+              "value": "={{ $json.url || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-scraped",
+              "name": "scrapedAt",
+              "value": "={{ $json.scrapedAt || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-creator",
+      "name": "Format Creator Metrics",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1380, 320]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": ["channelId"]
+        },
+        "options": {}
+      },
+      "id": "sheets-upsert",
+      "name": "Upsert Creators to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1600, 320]
+    }
+  ],
+  "connections": {
+    "Weekly Monday Trigger": {
+      "main": [
+        [
+          {
+            "node": "Configure Target Channels",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Test Trigger": {
+      "main": [
+        [
+          {
+            "node": "Configure Target Channels",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configure Target Channels": {
+      "main": [
+        [
+          {
+            "node": "Scrape YouTube Channels (Apify)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape YouTube Channels (Apify)": {
+      "main": [
+        [
+          {
+            "node": "Filter Active High-View Channels",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Active High-View Channels": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate by Channel ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Deduplicate by Channel ID": {
+      "main": [
+        [
+          {
+            "node": "Format Creator Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Creator Metrics": {
+      "main": [
+        [
+          {
+            "node": "Upsert Creators to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

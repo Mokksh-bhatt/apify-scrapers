@@ -45,9 +45,13 @@ You pay per result — Apify compute & proxy usage are included, and Apify's **$
 
 ## Free Ready-to-Import n8n Workflow Templates
 
-Download and import either JSON workflow straight into **n8n** — just paste your Apify API token:
+Download and import any JSON workflow straight into **n8n** — just set `APIFY_TOKEN` in n8n Environment Variables and connect your Google Sheet:
 
-- **[Podcast Guest & Sponsor Outreach Automation](workflows/n8n-podcast-guest-outreach.json)** — Searches active shows (`activeWithinDays: 60`, `onlyWithEmail: true`, 1 row per podcast) and outputs clean host emails + social links ready for Google Sheets or cold email.
+- **[Podcast Guest & Sponsor Outreach Automation](workflows/n8n-podcast-guest-outreach.json)** — Weekly Monday schedule searching active podcasts (`activeWithinDays: 60`, `onlyWithEmail: true`), filtering proxy emails, deduplicating by `podcastId`, drafting pitch openers, and upserting to Google Sheets.
+- **[YouTube Creator Sponsorship Vetting & Weekly Tracker](workflows/n8n-youtube-creator-vetting.json)** — Pulls live YouTube channel stats & median recent views (no YouTube API key), filters by minimum views, calculates `viewsToSubRatioPct`, and upserts to Google Sheets.
+- **[Weekly Competitor Google Ads Spy](workflows/n8n-google-ads-competitor-spy.json)** — Monitors competitor Search, Display, and YouTube ads via Google Ads Transparency Center, deduplicates by `adId`, and logs regions, formats, and preview links to Google Sheets.
+- **[Shopify Store Price Drop & Sale Monitor](workflows/n8n-shopify-price-drop-monitor.json)** — Scans Shopify competitor catalogs for in-stock markdowns (`onSale === true`), computes `discountPct`, and upserts deals to Google Sheets.
+- **[Steam Negative Review Bug & Sentiment Tracker](workflows/n8n-steam-negative-review-tracker.json)** — Pulls newest negative Steam reviews via Valve's current API, filters by minimum playtime hours, tags bug `priority` (`HIGH` / `MEDIUM` / `NORMAL`), and upserts to Google Sheets.
 - **[Local Agency Low-Star Review Lead Pipeline](workflows/n8n-review-lead-qualifier.json)** — Filters Google Maps review exports for recent unanswered 1–2 star reviews and deduplicates previously contacted businesses automatically.
 
 ---

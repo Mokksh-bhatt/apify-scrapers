@@ -1,0 +1,398 @@
+{
+  "name": "Weekly Competitor Google Ads Spy (Apify -> Google Sheets)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Google Ads Transparency Competitor Spy (Apify -> Google Sheets)\n\nAutomatically tracks competitor creatives on Google Search, Display, and YouTube every Monday, drops incomplete rows, deduplicates by `adId`, and upserts clean creative metadata + preview URLs into Google Sheets.\n\n**Prerequisites:**\n- Set `APIFY_TOKEN` in n8n Environment Variables (Apify's free $5/month credit covers testing).\n- Connect a Google Sheets OAuth2 credential and replace `YOUR_GOOGLE_SHEET_ID`.",
+        "height": 250,
+        "width": 450,
+        "color": 5
+      },
+      "id": "sticky-overview",
+      "name": "Sticky Note — Overview & Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [140, 20]
+    },
+    {
+      "parameters": {
+        "content": "## Step 1: Schedule & Competitor List\n\nEdit **Configure Competitors** to set target advertiser names, `maxAds` per brand, country `region` (`US`, `GB`, `anywhere`), or ad `format` (`any`, `TEXT`, `IMAGE`, `VIDEO`).",
+        "height": 170,
+        "width": 420,
+        "color": 4
+      },
+      "id": "sticky-config",
+      "name": "Sticky Note — Step 1 Config",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [160, 560]
+    },
+    {
+      "parameters": {
+        "content": "## Step 2: Scrape & Filter Ad Creatives\n\nCalls **67-labs/google-ads-transparency-center-scraper** on Apify, verifies each creative has an `adId` and `previewUrl`, and removes duplicates.",
+        "height": 180,
+        "width": 540,
+        "color": 6
+      },
+      "id": "sticky-extract",
+      "name": "Sticky Note — Step 2 Scrape & Filter",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [680, 60]
+    },
+    {
+      "parameters": {
+        "content": "## Step 3: Format & Upsert Ad Library\n\nNormalizes active regions, first/last shown dates, and image/preview URLs, then upserts by `adId` so weekly runs update existing ads cleanly.",
+        "height": 180,
+        "width": 460,
+        "color": 7
+      },
+      "id": "sticky-sheets",
+      "name": "Sticky Note — Step 3 Format & Sync",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1280, 60]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [1],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "trigger-weekly",
+      "name": "Weekly Monday Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "Manual Test Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [200, 460]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-advertisers",
+              "name": "advertisers",
+              "value": "={{ [\"Notion\", \"Linear\", \"HubSpot\"] }}",
+              "type": "array"
+            },
+            {
+              "id": "cfg-max",
+              "name": "maxAds",
+              "value": 30,
+              "type": "number"
+            },
+            {
+              "id": "cfg-region",
+              "name": "region",
+              "value": "US",
+              "type": "string"
+            },
+            {
+              "id": "cfg-format",
+              "name": "format",
+              "value": "any",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "configure-competitors",
+      "name": "Configure Competitors",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/67-labs~google-ads-transparency-center-scraper/run-sync-get-dataset-items",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "={{ $env.APIFY_TOKEN }}"
+            },
+            {
+              "name": "maxTotalChargeUsd",
+              "value": "1"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ advertisers: $json.advertisers, maxAds: $json.maxAds, region: $json.region, format: $json.format, includeRegions: true }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "apify-ads",
+      "name": "Scrape Google Ads Transparency (Apify)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 380]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-ad-id",
+              "leftValue": "={{ $json.adId || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "cond-preview-url",
+              "leftValue": "={{ $json.previewUrl || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-ads",
+      "name": "Filter Valid Ads",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [940, 380]
+    },
+    {
+      "parameters": {
+        "operation": "removeDuplicateInputItems",
+        "compare": "selectedFields",
+        "fieldsToCompare": {
+          "fields": [
+            {
+              "fieldName": "adId"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dedupe-ad",
+      "name": "Deduplicate by Ad ID",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [1160, 320]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "out-ad-id",
+              "name": "adId",
+              "value": "={{ $json.adId }}",
+              "type": "string"
+            },
+            {
+              "id": "out-adv-id",
+              "name": "advertiserId",
+              "value": "={{ $json.advertiserId || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-adv-name",
+              "name": "advertiserName",
+              "value": "={{ $json.advertiserName || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-format",
+              "name": "format",
+              "value": "={{ $json.format || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-first",
+              "name": "firstShown",
+              "value": "={{ $json.firstShown || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-last",
+              "name": "lastShown",
+              "value": "={{ $json.lastShown || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-regions",
+              "name": "regionsText",
+              "value": "={{ $json.regionsText || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-preview",
+              "name": "previewUrl",
+              "value": "={{ $json.previewUrl }}",
+              "type": "string"
+            },
+            {
+              "id": "out-image",
+              "name": "imageUrl",
+              "value": "={{ $json.imageUrl || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-scraped",
+              "name": "scrapedAt",
+              "value": "={{ $json.scrapedAt || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-ad",
+      "name": "Format Competitor Ad Row",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1380, 320]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": ["adId"]
+        },
+        "options": {}
+      },
+      "id": "sheets-upsert",
+      "name": "Upsert Ads to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1600, 320]
+    }
+  ],
+  "connections": {
+    "Weekly Monday Trigger": {
+      "main": [
+        [
+          {
+            "node": "Configure Competitors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Test Trigger": {
+      "main": [
+        [
+          {
+            "node": "Configure Competitors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configure Competitors": {
+      "main": [
+        [
+          {
+            "node": "Scrape Google Ads Transparency (Apify)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Google Ads Transparency (Apify)": {
+      "main": [
+        [
+          {
+            "node": "Filter Valid Ads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Valid Ads": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate by Ad ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Deduplicate by Ad ID": {
+      "main": [
+        [
+          {
+            "node": "Format Competitor Ad Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Competitor Ad Row": {
+      "main": [
+        [
+          {
+            "node": "Upsert Ads to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

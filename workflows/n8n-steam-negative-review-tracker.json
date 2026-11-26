@@ -1,0 +1,403 @@
+{
+  "name": "Weekly Steam Negative Review Bug & Sentiment Tracker (Apify -> Google Sheets)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Steam Negative Review Bug & Sentiment Tracker (Apify -> Google Sheets)\n\nPulls newest negative Steam player reviews every Monday via Valve's current API, filters out drive-by refunds under `minPlaytimeHours`, tags bug `priority` (`HIGH` / `MEDIUM` / `NORMAL`), and upserts into Google Sheets.\n\n**Prerequisites:**\n- Set `APIFY_TOKEN` in n8n Environment Variables (Apify's free $5/month credit covers testing).\n- Connect a Google Sheets OAuth2 credential and replace `YOUR_GOOGLE_SHEET_ID`.",
+        "height": 250,
+        "width": 450,
+        "color": 5
+      },
+      "id": "sticky-overview",
+      "name": "Sticky Note — Overview & Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [140, 20]
+    },
+    {
+      "parameters": {
+        "content": "## Step 1: Schedule & Game App IDs\n\nEdit **Configure Steam Apps** with any Steam numeric App IDs or store URLs, `language`, and minimum `minPlaytimeHours` before a review is triaged.",
+        "height": 170,
+        "width": 420,
+        "color": 4
+      },
+      "id": "sticky-config",
+      "name": "Sticky Note — Step 1 Config",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [160, 560]
+    },
+    {
+      "parameters": {
+        "content": "## Step 2: Scrape & Filter Player Reports\n\nCalls **67-labs/steam-reviews-scraper** on Apify, removes empty/short drive-by reviews below `minPlaytimeHours`, and deduplicates by `reviewId`.",
+        "height": 180,
+        "width": 540,
+        "color": 6
+      },
+      "id": "sticky-extract",
+      "name": "Sticky Note — Step 2 Scrape & Filter",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [680, 60]
+    },
+    {
+      "parameters": {
+        "content": "## Step 3: Priority Triage & Upsert Sheet\n\nFlags high-vote or veteran-hour negative reviews (`HIGH` / `MEDIUM` / `NORMAL`) and upserts clean rows into Google Sheets matched by `reviewId`.",
+        "height": 180,
+        "width": 460,
+        "color": 7
+      },
+      "id": "sticky-sheets",
+      "name": "Sticky Note — Step 3 Triage & Sync",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1280, 60]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [1],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "trigger-weekly",
+      "name": "Weekly Monday Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "Manual Test Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [200, 460]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-apps",
+              "name": "apps",
+              "value": "={{ [\"730\", \"1172470\"] }}",
+              "type": "array"
+            },
+            {
+              "id": "cfg-max",
+              "name": "maxReviews",
+              "value": 100,
+              "type": "number"
+            },
+            {
+              "id": "cfg-lang",
+              "name": "language",
+              "value": "english",
+              "type": "string"
+            },
+            {
+              "id": "cfg-hours",
+              "name": "minPlaytimeHours",
+              "value": 2,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "configure-apps",
+      "name": "Configure Steam Apps",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, 380]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/67-labs~steam-reviews-scraper/run-sync-get-dataset-items",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "={{ $env.APIFY_TOKEN }}"
+            },
+            {
+              "name": "maxTotalChargeUsd",
+              "value": "1"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ apps: $json.apps, maxReviews: $json.maxReviews, sort: 'newest', reviewType: 'negative', language: $json.language }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "apify-steam",
+      "name": "Scrape Steam Negative Reviews (Apify)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [700, 380]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-text",
+              "leftValue": "={{ $json.text || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "cond-playtime",
+              "leftValue": "={{ Number($json.playtimeAtReviewHours || 0) }}",
+              "rightValue": "={{ Number($('Configure Steam Apps').item.json.minPlaytimeHours) }}",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-reviews",
+      "name": "Filter Detailed Player Reviews",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [940, 380]
+    },
+    {
+      "parameters": {
+        "operation": "removeDuplicateInputItems",
+        "compare": "selectedFields",
+        "fieldsToCompare": {
+          "fields": [
+            {
+              "fieldName": "reviewId"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dedupe-review",
+      "name": "Deduplicate by Review ID",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [1160, 320]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "out-id",
+              "name": "reviewId",
+              "value": "={{ $json.reviewId }}",
+              "type": "string"
+            },
+            {
+              "id": "out-app-id",
+              "name": "appId",
+              "value": "={{ $json.appId || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-app-name",
+              "name": "appName",
+              "value": "={{ $json.appName || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-date",
+              "name": "date",
+              "value": "={{ $json.date || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-hours",
+              "name": "playtimeAtReviewHours",
+              "value": "={{ $json.playtimeAtReviewHours ?? 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "out-votes",
+              "name": "votesUp",
+              "value": "={{ $json.votesUp ?? 0 }}",
+              "type": "number"
+            },
+            {
+              "id": "out-priority",
+              "name": "priority",
+              "value": "={{ ($json.votesUp || 0) >= 10 ? 'HIGH' : (($json.playtimeAtReviewHours || 0) >= 20 ? 'MEDIUM' : 'NORMAL') }}",
+              "type": "string"
+            },
+            {
+              "id": "out-ea",
+              "name": "earlyAccess",
+              "value": "={{ Boolean($json.earlyAccess) }}",
+              "type": "boolean"
+            },
+            {
+              "id": "out-text",
+              "name": "text",
+              "value": "={{ $json.text || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-url",
+              "name": "url",
+              "value": "={{ $json.url || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-scraped",
+              "name": "scrapedAt",
+              "value": "={{ $json.scrapedAt || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-review",
+      "name": "Format Bug Triage Row",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1380, 320]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": ["reviewId"]
+        },
+        "options": {}
+      },
+      "id": "sheets-upsert",
+      "name": "Upsert Reviews to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [1600, 320]
+    }
+  ],
+  "connections": {
+    "Weekly Monday Trigger": {
+      "main": [
+        [
+          {
+            "node": "Configure Steam Apps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual Test Trigger": {
+      "main": [
+        [
+          {
+            "node": "Configure Steam Apps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configure Steam Apps": {
+      "main": [
+        [
+          {
+            "node": "Scrape Steam Negative Reviews (Apify)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Scrape Steam Negative Reviews (Apify)": {
+      "main": [
+        [
+          {
+            "node": "Filter Detailed Player Reviews",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Detailed Player Reviews": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate by Review ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Deduplicate by Review ID": {
+      "main": [
+        [
+          {
+            "node": "Format Bug Triage Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Bug Triage Row": {
+      "main": [
+        [
+          {
+            "node": "Upsert Reviews to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
