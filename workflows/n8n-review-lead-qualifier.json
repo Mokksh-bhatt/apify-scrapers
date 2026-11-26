@@ -1,0 +1,97 @@
+{
+  "name": "Google Maps Low-Star Review Leads to Google Sheets (67-labs/review-lead-qualifier)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/67-labs~review-lead-qualifier/run-sync-get-dataset-items",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "={{ $env.APIFY_TOKEN }}"
+            },
+            {
+              "name": "maxTotalChargeUsd",
+              "value": "1"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"mode\": \"paid\",\n  \"datasetId\": \"YOUR_REVIEWS_DATASET_ID\",\n  \"contactsDatasetId\": \"\",\n  \"previousDatasetId\": \"\",\n  \"maxResults\": 20,\n  \"unansweredOnly\": true\n}",
+        "options": {}
+      },
+      "id": "apify-qualify",
+      "name": "Qualify Review Leads (Apify)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {}
+      },
+      "id": "sheets-append",
+      "name": "Append Qualified Leads to Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [740, 300]
+    }
+  ],
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "Qualify Review Leads (Apify)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qualify Review Leads (Apify)": {
+      "main": [
+        [
+          {
+            "node": "Append Qualified Leads to Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

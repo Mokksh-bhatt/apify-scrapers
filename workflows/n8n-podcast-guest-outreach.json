@@ -1,0 +1,97 @@
+{
+  "name": "Find Niche Podcasts & Latest Episodes to Google Sheets (67-labs/podcast-search-scraper)",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "trigger-manual",
+      "name": "When clicking 'Test workflow'",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.apify.com/v2/acts/67-labs~podcast-search-scraper/run-sync-get-dataset-items",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "token",
+              "value": "={{ $env.APIFY_TOKEN }}"
+            },
+            {
+              "name": "maxTotalChargeUsd",
+              "value": "1"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{\n  \"queries\": [\"B2B SaaS marketing\"],\n  \"country\": \"US\",\n  \"maxPodcasts\": 50,\n  \"episodesPerPodcast\": 0,\n  \"activeWithinDays\": 60,\n  \"onlyWithEmail\": true\n}",
+        "options": {}
+      },
+      "id": "apify-podcast",
+      "name": "Search Podcasts (Apify)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Sheet1",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {}
+      },
+      "id": "sheets-append",
+      "name": "Save Podcasts to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [740, 300]
+    }
+  ],
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "Search Podcasts (Apify)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Podcasts (Apify)": {
+      "main": [
+        [
+          {
+            "node": "Save Podcasts to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
