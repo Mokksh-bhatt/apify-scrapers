@@ -11,7 +11,7 @@ You pay per result — Apify compute & proxy usage are included, and Apify's **$
 | Scraper | What You Extract | Starting Price |
 |---|---|---|
 | **[Podcast Search & Host Email Scraper](https://apify.com/67-labs/podcast-search-scraper)** | Search Apple Podcasts & read live RSS feeds for **real host emails** (filters Anchor/Spotify proxy emails), owner names, websites, social links, publishing cadence & episodes | `$1 / 1,000` results *(Dec 10: `$2/1k` + `$15/1k` emails)* |
-| **[YouTube Channel Scraper & Snapshot](https://apify.com/67-labs/youtube-channel-snapshot)** | Channel title, `@handle`, subscribers, exact total views, video count, country, created date, About links, upload cadence & median views (no API key) | `$2 / 1,000` channels |
+| **[YouTube Channel Scraper & Snapshot](https://apify.com/67-labs/youtube-channel-snapshot)** | Search channels by keyword or URL; extract subscribers, exact total views, public bio emails, structured socials, upload cadence, engagement ratio, median views & recent videos (no API key) | `$2 / 1,000` channels |
 | **[Review Lead Qualifier](https://apify.com/67-labs/review-lead-qualifier)** | Turn Google Maps review datasets/CSVs into prioritized agency outreach leads with recent 1–2 star written reviews, review links, owner reply status & business contacts | Free preview / `$0.05` per qualified lead |
 | **[Y Combinator Companies Scraper](https://apify.com/67-labs/yc-companies-scraper)** | Filter YC startup directory by batch, industry, hiring status & region | `$2 / 1,000` companies |
 | **[Remote Jobs Scraper](https://apify.com/67-labs/remote-jobs-scraper)** | Structured remote tech, product, design & marketing job listings with tags and apply links | `$1 / 1,000` jobs |
