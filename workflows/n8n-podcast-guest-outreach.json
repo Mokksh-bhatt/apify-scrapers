@@ -1,13 +1,133 @@
 {
-  "name": "Find Niche Podcasts & Latest Episodes to Google Sheets (67-labs/podcast-search-scraper)",
+  "name": "Weekly B2B Podcast Host Email Outreach (Apify -> Google Sheets)",
   "nodes": [
+    {
+      "parameters": {
+        "content": "## Podcast Guest & Sponsor Outreach (Apify -> Google Sheets)\n\nAutomatically discovers active podcasts every Monday, filters out Anchor/Spotify proxy emails, deduplicates shows across keywords, drafts a personalized pitch subject & opener, and upserts unique rows into Google Sheets.\n\n**Prerequisites:**\n- Set `APIFY_TOKEN` in n8n Environment Variables (Apify's free $5/month credit covers testing).\n- Connect a Google Sheets OAuth2 credential and replace `YOUR_GOOGLE_SHEET_ID`.",
+        "height": 240,
+        "width": 440,
+        "color": 5
+      },
+      "id": "sticky-overview",
+      "name": "Sticky Note — Overview & Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [140, 20]
+    },
+    {
+      "parameters": {
+        "content": "## Step 1: Schedule & Niche Config\n\nEdit **Configure Niche Search** to change target podcast keywords, country (`US`, `GB`, `CA`), publishing freshness (`activeWithinDays`), or your `pitchTopic` and `pitchSenderName`.",
+        "height": 170,
+        "width": 420,
+        "color": 4
+      },
+      "id": "sticky-config",
+      "name": "Sticky Note — Step 1 Config",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [160, 560]
+    },
+    {
+      "parameters": {
+        "content": "## Step 2: Scrape & Clean Host Contacts\n\nCalls **67-labs/podcast-search-scraper** on Apify, drops any rows without a valid `hostEmail`, and deduplicates by `podcastId` so multi-keyword runs never double-pitch a show.",
+        "height": 180,
+        "width": 540,
+        "color": 6
+      },
+      "id": "sticky-extract",
+      "name": "Sticky Note — Step 2 Extract & Filter",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [680, 60]
+    },
+    {
+      "parameters": {
+        "content": "## Step 3: Draft Pitch & Upsert Sheet\n\nBuilds clean outreach columns (`outreachSubject`, `outreachOpener`) and upserts each podcast into Google Sheets matched by `podcastId` so weekly runs never create duplicate rows.",
+        "height": 180,
+        "width": 460,
+        "color": 7
+      },
+      "id": "sticky-sheets",
+      "name": "Sticky Note — Step 3 Draft & Sync",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [1280, 60]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "weeks",
+              "triggerAtDay": [1],
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "trigger-weekly",
+      "name": "Weekly Monday Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [200, 300]
+    },
     {
       "parameters": {},
       "id": "trigger-manual",
-      "name": "When clicking 'Test workflow'",
+      "name": "Manual Test Trigger",
       "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
-      "position": [240, 300]
+      "position": [200, 460]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "cfg-queries",
+              "name": "queries",
+              "value": "={{ [\"B2B SaaS\", \"startup founders\"] }}",
+              "type": "array"
+            },
+            {
+              "id": "cfg-country",
+              "name": "country",
+              "value": "US",
+              "type": "string"
+            },
+            {
+              "id": "cfg-max",
+              "name": "maxPodcasts",
+              "value": 50,
+              "type": "number"
+            },
+            {
+              "id": "cfg-days",
+              "name": "activeWithinDays",
+              "value": 60,
+              "type": "number"
+            },
+            {
+              "id": "cfg-sender",
+              "name": "pitchSenderName",
+              "value": "Your Name",
+              "type": "string"
+            },
+            {
+              "id": "cfg-topic",
+              "name": "pitchTopic",
+              "value": "B2B SaaS growth",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "configure-search",
+      "name": "Configure Niche Search",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [440, 380]
     },
     {
       "parameters": {
@@ -28,18 +148,177 @@
         },
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{\n  \"queries\": [\"B2B SaaS marketing\"],\n  \"country\": \"US\",\n  \"maxPodcasts\": 50,\n  \"episodesPerPodcast\": 0,\n  \"activeWithinDays\": 60,\n  \"onlyWithEmail\": true\n}",
-        "options": {}
+        "jsonBody": "={{ JSON.stringify({ queries: $json.queries, country: $json.country, maxPodcasts: $json.maxPodcasts, episodesPerPodcast: 0, activeWithinDays: $json.activeWithinDays, onlyWithEmail: true }) }}",
+        "options": {
+          "timeout": 120000
+        }
       },
       "id": "apify-podcast",
-      "name": "Search Podcasts (Apify)",
+      "name": "Search Podcasts & Host Emails (Apify)",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [480, 300]
+      "position": [700, 380]
     },
     {
       "parameters": {
-        "operation": "append",
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-not-empty",
+              "leftValue": "={{ $json.hostEmail || '' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "cond-has-at",
+              "leftValue": "={{ $json.hostEmail || '' }}",
+              "rightValue": "@",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-valid-email",
+      "name": "Filter Valid Host Emails",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [940, 380]
+    },
+    {
+      "parameters": {
+        "operation": "removeDuplicateInputItems",
+        "compare": "selectedFields",
+        "fieldsToCompare": {
+          "fields": [
+            {
+              "fieldName": "podcastId"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "dedupe-podcast",
+      "name": "Deduplicate by Podcast ID",
+      "type": "n8n-nodes-base.removeDuplicates",
+      "typeVersion": 2,
+      "position": [1160, 320]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "out-id",
+              "name": "podcastId",
+              "value": "={{ $json.podcastId }}",
+              "type": "string"
+            },
+            {
+              "id": "out-name",
+              "name": "podcastName",
+              "value": "={{ $json.podcastName || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-owner",
+              "name": "ownerName",
+              "value": "={{ $json.ownerName || $json.artist || 'Podcast Team' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-email",
+              "name": "hostEmail",
+              "value": "={{ $json.hostEmail }}",
+              "type": "string"
+            },
+            {
+              "id": "out-src",
+              "name": "hostEmailSource",
+              "value": "={{ $json.hostEmailSource || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-web",
+              "name": "website",
+              "value": "={{ $json.website || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-genre",
+              "name": "primaryGenre",
+              "value": "={{ $json.primaryGenre || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-cadence",
+              "name": "averageDaysBetweenEpisodes",
+              "value": "={{ $json.averageDaysBetweenEpisodes ?? '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-last",
+              "name": "lastEpisodeDate",
+              "value": "={{ $json.lastEpisodeDate || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-socials",
+              "name": "socialLinks",
+              "value": "={{ Array.isArray($json.socialLinks) ? $json.socialLinks.join(', ') : '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-url",
+              "name": "podcastUrl",
+              "value": "={{ $json.podcastUrl || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "out-subject",
+              "name": "outreachSubject",
+              "value": "={{ 'Guest pitch for ' + ($json.podcastName || 'your podcast') }}",
+              "type": "string"
+            },
+            {
+              "id": "out-opener",
+              "name": "outreachOpener",
+              "value": "={{ 'Hi ' + ($json.ownerName || $json.artist || 'there') + ', I have been following ' + ($json.podcastName || 'your show') + ' and would love to share practical lessons on ' + $('Configure Niche Search').item.json.pitchTopic + ' — ' + $('Configure Niche Search').item.json.pitchSenderName }}",
+              "type": "string"
+            },
+            {
+              "id": "out-scraped",
+              "name": "scrapedAt",
+              "value": "={{ $json.scrapedAt || '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "format-lead",
+      "name": "Format Lead & Pitch Draft",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1380, 320]
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
         "documentId": {
           "__rl": true,
           "value": "YOUR_GOOGLE_SHEET_ID",
@@ -52,34 +331,91 @@
         },
         "columns": {
           "mappingMode": "autoMapInputData",
-          "value": {}
+          "value": {},
+          "matchingColumns": ["podcastId"]
         },
         "options": {}
       },
-      "id": "sheets-append",
-      "name": "Save Podcasts to Google Sheets",
+      "id": "sheets-upsert",
+      "name": "Upsert Leads to Google Sheets",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.5,
-      "position": [740, 300]
+      "position": [1600, 320]
     }
   ],
   "connections": {
-    "When clicking 'Test workflow'": {
+    "Weekly Monday Trigger": {
       "main": [
         [
           {
-            "node": "Search Podcasts (Apify)",
+            "node": "Configure Niche Search",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Search Podcasts (Apify)": {
+    "Manual Test Trigger": {
       "main": [
         [
           {
-            "node": "Save Podcasts to Google Sheets",
+            "node": "Configure Niche Search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Configure Niche Search": {
+      "main": [
+        [
+          {
+            "node": "Search Podcasts & Host Emails (Apify)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Search Podcasts & Host Emails (Apify)": {
+      "main": [
+        [
+          {
+            "node": "Filter Valid Host Emails",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Valid Host Emails": {
+      "main": [
+        [
+          {
+            "node": "Deduplicate by Podcast ID",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Deduplicate by Podcast ID": {
+      "main": [
+        [
+          {
+            "node": "Format Lead & Pitch Draft",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Lead & Pitch Draft": {
+      "main": [
+        [
+          {
+            "node": "Upsert Leads to Google Sheets",
             "type": "main",
             "index": 0
           }
