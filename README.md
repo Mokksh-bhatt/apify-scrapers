@@ -53,6 +53,17 @@ Download and import any JSON workflow straight into **n8n** — just set `APIFY_
 - **[Shopify Store Price Drop & Sale Monitor](workflows/n8n-shopify-price-drop-monitor.json)** — Scans Shopify competitor catalogs for in-stock markdowns (`onSale === true`), computes `discountPct`, and upserts deals to Google Sheets.
 - **[Steam Negative Review Bug & Sentiment Tracker](workflows/n8n-steam-negative-review-tracker.json)** — Pulls newest negative Steam reviews via Valve's current API, filters by minimum playtime hours, tags bug `priority` (`HIGH` / `MEDIUM` / `NORMAL`), and upserts to Google Sheets.
 - **[Local Agency Low-Star Review Lead Pipeline](workflows/n8n-review-lead-qualifier.json)** — Filters Google Maps review exports for recent unanswered 1–2 star reviews and deduplicates previously contacted businesses automatically.
+- **[Make.com Scenario: Weekly YouTube Creator Vetting](workflows/make-youtube-creator-vetting.json)** — Ready-to-import Make blueprint searching YouTube creators by niche, filtering for public bio emails and median views, and saving rows to Google Sheets.
+
+---
+
+## REST API (RapidAPI / Clay / Make)
+
+Need direct REST endpoints (OpenAPI 3.0.3) instead of Apify Actors?
+
+- **Live Serverless Wrapper:** `https://67labs-rapidapi.vercel.app`
+- **OpenAPI 3.0.3 Spec:** `https://67labs-rapidapi.vercel.app/api/openapi.json`
+- **Endpoints:** `/api/v1/youtube/channel`, `/api/v1/youtube/search`, `/api/v1/podcasts/search`, `/api/v1/shopify/products`
 
 ---
 

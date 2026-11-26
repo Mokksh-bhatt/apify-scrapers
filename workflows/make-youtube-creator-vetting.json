@@ -1,0 +1,120 @@
+{
+  "name": "Weekly YouTube Creator Vetting (67-labs Apify -> Make -> Google Sheets)",
+  "flow": [
+    {
+      "id": 1,
+      "module": "http:ActionSendData",
+      "version": 3,
+      "parameters": {
+        "handleErrors": false,
+        "useNewZLibDeCompress": true
+      },
+      "mapper": {
+        "url": "https://api.apify.com/v2/acts/67-labs~youtube-channel-snapshot/run-sync-get-dataset-items?token=YOUR_APIFY_TOKEN&maxTotalChargeUsd=1",
+        "serializeUrl": false,
+        "method": "post",
+        "headers": [
+          {
+            "name": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "qs": [],
+        "bodyType": "raw",
+        "parseResponse": true,
+        "contentType": "application/json",
+        "data": "{\"searchQueries\":[\"AI coding tutorials\",\"B2B SaaS marketing\"],\"maxChannelsPerQuery\":15,\"minSubscribers\":10000,\"onlyWithEmail\":true,\"includeRecentVideos\":true,\"maxRecentVideos\":5}",
+        "timeout": 120,
+        "shareCookies": false,
+        "followRedirect": true,
+        "useQuerystring": false,
+        "followAllRedirects": false,
+        "rejectUnauthorized": true
+      },
+      "metadata": {
+        "designer": {
+          "x": 0,
+          "y": 0,
+          "name": "Search & Vet YouTube Creators (67-labs)"
+        }
+      }
+    },
+    {
+      "id": 2,
+      "module": "builtin:BasicFeeder",
+      "version": 1,
+      "parameters": {},
+      "mapper": {
+        "array": "{{1.data}}"
+      },
+      "metadata": {
+        "designer": {
+          "x": 300,
+          "y": 0,
+          "name": "Iterate Channels"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "module": "google-sheets:addRow",
+      "version": 2,
+      "parameters": {},
+      "filter": {
+        "name": "Only Active Channels (Median Views >= 5,000)",
+        "conditions": [
+          [
+            {
+              "a": "{{2.medianViewsLast30}}",
+              "b": "5000",
+              "o": "number:greater"
+            }
+          ]
+        ]
+      },
+      "mapper": {
+        "from": "drive",
+        "mode": "select",
+        "spreadsheetId": "YOUR_GOOGLE_SPREADSHEET_ID",
+        "sheetName": "Sheet1",
+        "includesHeaders": true,
+        "values": {
+          "0": "{{2.title}}",
+          "1": "{{2.handle}}",
+          "2": "{{2.email}}",
+          "3": "{{2.subscriberCount}}",
+          "4": "{{2.medianViewsLast30}}",
+          "5": "{{2.viewsToSubRatioPct}}",
+          "6": "{{2.uploadsPer30Days}}",
+          "7": "{{2.country}}",
+          "8": "{{2.socials.twitter}}",
+          "9": "{{2.url}}",
+          "10": "{{2.matchedQuery}}"
+        }
+      },
+      "metadata": {
+        "designer": {
+          "x": 600,
+          "y": 0,
+          "name": "Log Qualified Creators to Google Sheets"
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "version": 1,
+    "scenario": {
+      "roundtrips": 1,
+      "maxErrors": 3,
+      "autoCommit": true,
+      "autoCommitTriggerLast": true,
+      "sequential": false,
+      "confidential": false,
+      "dataloss": false,
+      "dlq": false
+    },
+    "designer": {
+      "orphans": []
+    }
+  }
+}
